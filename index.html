@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel steelframe con capas</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--tx:#1d1d1b;--mut:#6b6a65;--bd:#dcdad3;--ac:#5b3fa6;--acx:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17161a;--card:#222126;--tx:#eeedf0;--mut:#9b99a3;--bd:#38363f;--ac:#a58bf0;--acx:#17161a}}
+:root[data-theme="dark"]{--bg:#17161a;--card:#222126;--tx:#eeedf0;--mut:#9b99a3;--bd:#38363f;--ac:#a58bf0;--acx:#17161a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#v{flex:1;min-height:0;position:relative;background:#2a2d36}
+#v canvas{display:block;width:100%;height:100%}
+#info{position:absolute;left:10px;top:10px;right:10px;color:#e8e8ee;font-size:.85rem;pointer-events:none;text-shadow:0 1px 2px #000}
+#p{background:var(--card);border-top:1px solid var(--bd);padding:10px 14px}
+.row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.row label{font-size:.8rem;color:var(--mut);min-width:78px}
+.row input[type=range]{flex:1;accent-color:var(--ac)}
+.row span{font-size:.8rem;min-width:110px;text-align:right}
+button{font-size:.9rem;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+button.pri{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+.hide{display:none}#lay{font-size:.8rem;margin-bottom:8px}#lay b{display:block;margin-top:4px}#lay label{display:inline-flex;align-items:center;gap:6px;margin:2px 12px 2px 0}
+details{font-size:.8rem;color:var(--mut)}
+summary{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="v"><div id="info">Tocá una pieza para sacarla o ponerla de nuevo. Arrastrá para girar.</div></div>
+<div id="p">
+  <div class="row"><label for="ex">Explosión</label><input id="ex" type="range" min="0" max="1" step="0.01" value="0"></div>
+  <div class="row"><label for="st">Montaje</label><input id="st" type="range" min="0" max="6" step="1" value="6"><span id="stl"></span></div>
+  <div class="row"><button class="pri" id="bd">Desarmar</button><button id="br">Reiniciar</button><button id="bp">Panelizar</button></div>
+  <div id="lay" class="hide"></div><details><summary>Listado de corte</summary><div id="lst"></div></details>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const t = 0.003; // espesor visual (el real es 0,94 mm)
+const wrap = document.getElementById("v");
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+wrap.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(40, 1, 0.05, 50);
+cam.position.set(4.6, 2.2, 5.8);
+const ctl = new THREE.OrbitControls(cam, renderer.domElement);
+ctl.target.set(1.8, 1.3, 0); ctl.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 0.95));
+const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(3, 6, 5); scene.add(dl);
+const grid = new THREE.GridHelper(9, 18, 0x666677, 0x444455); grid.position.set(1.8, -0.002, 0); scene.add(grid);
+
+function bx(g, w, h, d, x, y, z, m) {
+  const s = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  s.position.set(x, y, z); g.add(s);
+}
+// PGC 100: eje en X, alma en Y, alas hacia +Z
+function C(len, m) {
+  const g = new THREE.Group(), W = 0.1, F = 0.04, L = 0.012;
+  bx(g, len, W, t, 0, 0, 0, m);
+  for (const s of [-1, 1]) {
+    bx(g, len, t, F, 0, s * (W / 2 - t / 2), F / 2, m);
+    bx(g, len, L, t, 0, s * (W / 2 - t - L / 2), F - t / 2, m);
+  }
+  return g;
+}
+// PGU 100: eje en X, alma horizontal, alas hacia dir en Y
+function U(len, dir, m) {
+  const g = new THREE.Group();
+  bx(g, len, t, 0.102, 0, 0, 0, m);
+  for (const s of [-1, 1]) bx(g, len, 0.035, t, 0, dir * 0.0175, s * (0.051 - t / 2), m);
+  return g;
+}
+const Q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 1, 1).normalize(), 2 * Math.PI / 3); // eje X a Y, alma a Z, alas a +X
+
+const COL = {sol: 0xb8c0cc, mon: 0x6f8fb8, king: 0xd9a441, jack: 0xe0703a, dint: 0x6bb38a, clip: 0xb06fb8, vano: 0x8f9bb0};
+const STEP = {sol: 1, mon: 2, king: 3, jack: 3, dint: 4, clip: 5, vano: 6};
+const STEPN = ["Sin piezas", "Soleras", "Montantes", "Kings y jacks", "Dinteles", "Clippes", "Jambas del vano"];
+const pieces = [];
+function add(cat, name, len, g, pos, dir) {
+  g.position.copy(pos);
+  const p = {g, cat, name, len, home: pos.clone(), dir, det: false, step: STEP[cat], mat: g.children[0].material, cur: pos.clone()};
+  g.traverse(o => { if (o.isMesh) o.userData.p = p; });
+  scene.add(g); pieces.push(p);
+}
+const mk = c => new THREE.MeshStandardMaterial({color: COL[c], metalness: 0.55, roughness: 0.4, side: THREE.DoubleSide});
+function stud(cat, name, len, cx, cy, dir) {
+  const g = C(len / 1000, mk(cat)); g.quaternion.copy(Q);
+  add(cat, name, len, g, new THREE.Vector3(cx - 0.02, cy, 0), dir);
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const xL = 1.445, xR = 3.225, xc = (xL + xR) / 2, xh = xc;
+
+// PGU soleras
+let g = U(3.6, 1, mk("sol")); add("sol", "Solera PGU 100 x 0.94", 3600, g, V(1.8, t / 2, 0), V(0, -0.5, 0));
+g = U(3.6, -1, mk("sol")); add("sol", "Solera PGU 100 x 0.94", 3600, g, V(1.8, 2.7 - t / 2, 0), V(0, 0.5, 0));
+// montantes
+[0.02, 0.3, 0.6, 0.9, 1.2, 3.47, 3.58].forEach(x => stud("mon", "Montante PGC 100 x 0.94", 2698, x, 1.35, V(0, 0, 0.5)));
+// kings y jacks
+[1.385, 3.285].forEach(x => stud("king", "King PGC 100 x 0.94", 2698, x, 1.35, V(0, 0, 0.9)));
+[1.425, 3.245].forEach(x => stud("jack", "Jack PGC 100 x 0.94", 2597, x, t + 1.2985, V(0, 0, 1.3)));
+// dintel (viga cajón): 2 PGC espalda con espalda, cerrados abajo con 1 PGU, arriba del todo bajo la solera superior
+g = C(1.86, mk("dint")); add("dint", "Dintel PGC 100 x 0.94", 1860, g, V(xh, 2.65, t / 2), V(0, 0.1, 1.7));
+g = C(1.86, mk("dint")); g.rotation.y = Math.PI; add("dint", "Dintel PGC 100 x 0.94", 1860, g, V(xh, 2.65, -t / 2), V(0, 0.1, -1.7));
+g = U(1.85, 1, mk("dint")); add("dint", "Dintel PGU 100 x 0.94", 1850, g, V(xh, 2.5985, 0), V(0, -0.2, 0));
+// clippes
+for (let i = 1; i <= 4; i++) {
+  const x = xL + (xR - xL) * i / 5;
+  stud("clip", "Clippe sup PGC 100 x 0.94", 597, x, 2.2985, V(0, 0.5, 0.7));
+  stud("clip", "Clippe inf PGC 100 x 0.94", 798, x, 0.4 + t, V(0, -0.5, 0.7));
+}
+// vanos PGU
+// soleras del vano: alas hacia el vano y orejas dobladas contra los jacks (1780 + 2 x 160 = 2100)
+function VS(dir) {
+  const m = mk("vano"), th = (2.1 - (xR - xL)) / 2, g = U(xR - xL - 2 * t, dir, m);
+  for (const s of [-1, 1]) bx(g, t, th, 0.102, s * ((xR - xL) / 2 - t / 2), dir * th / 2, 0, m);
+  return g;
+}
+g = VS(-1); add("vano", "Vano PGU 100 x 0.94", 2100, g, V(xc, 2.0 - t / 2, 0), V(0, 0.25, 1.4));
+g = VS(1); add("vano", "Vano PGU 100 x 0.94", 2100, g, V(xc, 0.802 + t / 2, 0), V(0, -0.25, 1.4));
+pieces.forEach(p => { p.dir = p.dir.clone(); p.dir.x += (p.home.x - 1.8) * 0.25; });
+
+// UI
+const ex = document.getElementById("ex"), st = document.getElementById("st"), info = document.getElementById("info");
+let exv = 0, ext = 0, step = 6;
+ex.addEventListener("input", () => { ext = exv = parseFloat(ex.value); });
+st.addEventListener("input", () => { step = parseInt(st.value, 10); lbl(); });
+function lbl() { document.getElementById("stl").textContent = step + ". " + STEPN[step]; }
+document.getElementById("bd").addEventListener("click", e => {
+  ext = ext > 0.5 ? 0 : 1; e.target.textContent = ext > 0.5 ? "Armar" : "Desarmar";
+});
+document.getElementById("br").addEventListener("click", () => {
+  pieces.forEach(p => p.det = false); ext = 0; step = 6; st.value = 6; lbl();
+  document.getElementById("bd").textContent = "Desarmar";
+});
+const cnt = {};
+pieces.forEach(p => { const k = p.name + " · " + p.len + " mm"; cnt[k] = (cnt[k] || 0) + 1; });
+document.getElementById("lst").innerHTML = Object.keys(cnt).map(k => cnt[k] + " × " + k).join("<br>");
+lbl();
+
+// capas de panelizado: exterior hacia +Z, interior hacia -Z (con el hueco de la ventana)
+const LAY = [
+  ["ext", "OSB 11 mm", 0.052, 0.011, 0xc9a56b, 1, 2.4],
+  ["ext", "Membrana hidrófuga", 0.063, 0.002, 0xf4f4f4, 0.9, 2.8],
+  ["ext", "Placa cementicia 8 mm", 0.065, 0.008, 0x9aa1a6, 1, 3.2],
+  ["int", "Lana de vidrio 80 mm", -0.04, 0.08, 0xf0d34a, 0.85, -2.2],
+  ["int", "Barrera de vapor", -0.054, 0.002, 0x9ecbe8, 0.55, -2.6],
+  ["int", "Placa de yeso 12.5 mm", -0.0665, 0.0125, 0xe8e4da, 1, -3.0]
+];
+const sh = new THREE.Shape();
+sh.moveTo(0, 0); sh.lineTo(3.6, 0); sh.lineTo(3.6, 2.7); sh.lineTo(0, 2.7); sh.lineTo(0, 0);
+const hole = new THREE.Path();
+hole.moveTo(xL, 0.8); hole.lineTo(xL, 2.0); hole.lineTo(xR, 2.0); hole.lineTo(xR, 0.8); hole.lineTo(xL, 0.8);
+sh.holes.push(hole);
+const layerOn = {}; let pan = false;
+LAY.forEach(l => {
+  const th = l[3], m = new THREE.MeshStandardMaterial({color: l[4], roughness: 0.8, metalness: 0, transparent: l[5] < 1, opacity: l[5], side: THREE.DoubleSide});
+  const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, {depth: th, bevelEnabled: false}), m);
+  mesh.position.z = l[2];
+  const g = new THREE.Group(); g.add(mesh); g.visible = false; scene.add(g);
+  const p = {g, cat: "lay", name: l[1], len: 0, home: V(0, 0, 0), dir: V(0, 0, l[6]), det: false, step: 0, mat: m, cur: V(0, 0, 0), layer: l[1], lbl: l[1]};
+  mesh.userData.p = p; pieces.push(p); layerOn[l[1]] = true;
+});
+const lay = document.getElementById("lay"), bp = document.getElementById("bp");
+const SIDE = {ext: "Exterior", int: "Interior"};
+lay.innerHTML = ["ext", "int"].map(k => "<b>" + SIDE[k] + "</b>" + LAY.filter(l => l[0] === k).map(l =>
+  '<label><input type="checkbox" checked data-n="' + l[1] + '">' + l[1] + "</label>").join("")).join("");
+lay.addEventListener("change", e => { layerOn[e.target.dataset.n] = e.target.checked; });
+bp.addEventListener("click", () => {
+  pan = !pan; lay.classList.toggle("hide", !pan);
+  bp.textContent = pan ? "Quitar paneles" : "Panelizar"; bp.classList.toggle("pri", pan);
+});
+
+// selección
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let down = null;
+renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, cam);
+  const meshes = []; pieces.forEach(p => { if (p.g.visible) p.g.traverse(o => o.isMesh && meshes.push(o)); });
+  const h = ray.intersectObjects(meshes)[0];
+  if (!h) return;
+  const p = h.object.userData.p; p.det = !p.det;
+  info.textContent = (p.lbl || p.name + " · " + p.len + " mm") + " · " + (p.det ? "sacada del panel" : "en su lugar");
+});
+
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  renderer.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(wrap); resize();
+
+const tmp = new THREE.Vector3();
+(function loop() {
+  requestAnimationFrame(loop);
+  exv += (ext - exv) * 0.1; if (Math.abs(ext - exv) < 0.002) exv = ext;
+  if (document.activeElement !== ex) ex.value = exv;
+  pieces.forEach(p => {
+    p.g.visible = p.layer ? pan && layerOn[p.layer] : step >= p.step;
+    tmp.copy(p.home).addScaledVector(p.dir, exv);
+    if (p.det) tmp.z += 2.4;
+    p.cur.lerp(tmp, 0.15); p.g.position.copy(p.cur);
+    p.mat.emissive.setHex(p.det ? 0x5a2a00 : 0x000000);
+  });
+  ctl.update(); renderer.render(scene, cam);
+})();
+</script>
+</body>
+</html>
