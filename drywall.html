@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel drywall</title>
+<style>
+:root{--ac:#b69df8;--mut:#a9a5b1;--ln:#3b3a42}
+*{box-sizing:border-box}
+body{margin:0;background:#202126;color:#e6e1e9;font:16px system-ui,sans-serif}
+#hint{margin:0;padding:12px 16px;background:#000;font-size:18px}
+#cv{height:46vh;min-height:300px;background:#000;touch-action:none}
+#cv canvas{display:block;width:100%;height:100%}
+main{padding:8px 16px 48px}
+.row{display:flex;align-items:center;gap:12px;margin:12px 0}
+.row span{width:96px;color:var(--mut)}
+.row b{min-width:130px;font-weight:400}
+input[type=range]{flex:1;accent-color:var(--ac);padding:0;border:0;background:none}
+button,select,input,textarea{font:inherit;color:inherit;background:#15151a;border:1px solid var(--ln);border-radius:12px;padding:12px 14px;min-width:0}
+button.on{background:var(--ac);color:#1d1635;border-color:var(--ac)}
+.bt{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.g label{display:flex;flex-direction:column;gap:4px;color:var(--mut);font-size:14px}
+.sr{display:grid;grid-template-columns:1fr 1fr 80px 52px;gap:8px;margin:8px 0}
+#st{margin:14px 0 6px}.ok{color:#6fd08c}.wr{color:#e8b04a}
+.av{border-left:4px solid #e8b04a;background:#1a1a20;border-radius:8px;padding:12px;color:var(--mut);margin:14px 0}
+details{margin:16px 0}summary{cursor:pointer;color:var(--mut);font-size:18px}
+textarea{width:100%;height:110px;margin-top:10px}pre{white-space:pre-wrap;font-size:13px;color:var(--mut)}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;flex-direction:column;align-items:center;gap:12px;padding:16px;overflow:auto;z-index:9}
+#ov img{width:100%;max-width:900px;border-radius:12px}
+</style></head><body>
+<p id="hint">Tocá una pieza para sacarla o ponerla de nuevo. Arrastrá para girar.</p>
+<div id="cv"></div>
+<main>
+<div class="row"><span>Explosión</span><input id="ex" type="range" min="0" max="100" value="0"></div>
+<div class="row"><span>Montaje</span><input id="mo" type="range" min="1" max="5" value="5"><b id="ml"></b></div>
+<div class="bt"><button id="bD" class="on">Desarmar</button><button id="bR">Reiniciar</button><button id="bP" class="on">Quitar placas</button></div>
+<div class="bt" id="vb"><button data-v="ventana" class="on">Ventana</button><button data-v="puerta">Puerta</button><button data-v="sin">Sin vano</button></div>
+<div class="bt"><button id="bE">Exportar imagen</button></div>
+<div id="st"></div><div id="vn" style="color:var(--mut)"></div>
+<div class="av"><b>Aviso:</b> este programa sirve solo para visualizar. No pretende ni debe usarse para reemplazar el plano ni el cálculo estructural correspondiente.</div>
+
+<details open><summary>▼ Medidas del panel</summary><div class="g" id="pr">
+<label>Largo (mm)<input id="L" type="number" inputmode="numeric" value="3600"></label>
+<label>Alto (mm)<input id="H" type="number" inputmode="numeric" value="2700"></label>
+<label>Perfil (mm)<select id="perf"><option>70</option><option>90</option><option>100</option></select></label>
+<label>Separación montantes<select id="sep"><option>400</option><option>480</option><option>600</option></select></label>
+<label>Placa (espesor)<select id="esp"><option>9.5</option><option selected>12.5</option><option>15</option></select></label>
+<label>Capas por cara<select id="capas"><option>1</option><option>2</option></select></label>
+<label>Sentido<select id="sent"><option value="v">Placas verticales</option><option value="h">Placas horizontales</option></select></label>
+<label>Placa estándar<select id="plate"><option value="1200x2400">1200 × 2400</option><option value="1200x2600">1200 × 2600</option><option value="1200x3000">1200 × 3000</option></select></label>
+<label>Ancho vano<input id="vw" type="number" inputmode="numeric" value="1200"></label>
+<label>Alto vano<input id="vh" type="number" inputmode="numeric" value="1200"></label>
+<label>Antepecho<input id="vs" type="number" inputmode="numeric" value="900"></label>
+<label>Posición X vano<input id="vx" type="number" inputmode="numeric" value="1200"></label>
+</div></details>
+
+<details open><summary>▼ Placas disponibles</summary>
+<div style="color:var(--mut);font-size:14px;margin-top:8px">Largo · ancho · cantidad (mm). Si no cargás nada, se calcula con stock ilimitado de placa estándar. Las placas se cortan según haga falta.</div>
+<div id="stock"></div>
+<div class="bt"><button id="bA">+ Agregar placa</button><button id="bF">Cargar lista completa</button><button id="bV">Vaciar</button></div>
+<div style="color:var(--mut);margin-top:12px;font-weight:600">Pegar listado de placas</div>
+<textarea id="tx" placeholder="Una línea por tipo de placa, por ejemplo:&#10;6 × Placa 1200 x 2400 mm&#10;2 × Placa 1200 x 2600 mm"></textarea>
+<div class="row"><label><input id="rp" type="checkbox" checked style="width:20px;height:20px"> Reemplazar la lista actual</label></div>
+<div class="bt"><button id="bI" class="on">Importar listado</button></div>
+</details>
+
+<details><summary>Listado de corte</summary><pre id="ls"></pre></details>
+</main>
+<div id="ov"><img id="oi"><div class="bt"><button id="bS" class="on">Guardar PNG</button><button id="bC">Cerrar</button></div><p style="color:#fff;text-align:center">Tocá Guardar PNG, o mantené apretada la imagen para guardarla.</p></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),F=35,K=.001;
+const C={s:0x7e90ab,m:0x5b7fb3,j:0xe0883a,d:0x5fb58a,c:0xb066c8,a:0xb7c0ca,b:0xdccaa4};
+const STEPS=['','1. Soleras','2. Montantes','3. Vano','4. Placas cara A','5. Placas cara B'];
+let vano='ventana',stock=[],hid=new Set(),ex=0,exT=0,mont=5,parts=[],meshes=[],pieces=[],O=null,bad=0,stTxt='';
+const num=id=>+$('#'+id).value||0;
+function params(){const[s,l]=$('#plate').value.split('x').map(Number);return{L:Math.max(num('L'),600),H:Math.max(num('H'),600),sep:num('sep'),W:num('perf'),esp:+$('#esp').value,capas:+$('#capas').value,sent:$('#sent').value,s,l,vw:num('vw'),vh:num('vh'),vs:num('vs'),vx:num('vx')}}
+function sub(r,o){const a=Math.max(r.x0,o.x0),b=Math.min(r.x1,o.x1),c=Math.max(r.y0,o.y0),d=Math.min(r.y1,o.y1);
+if(a>=b||c>=d)return[r];
+return[{x0:r.x0,x1:a,y0:r.y0,y1:r.y1},{x0:b,x1:r.x1,y0:r.y0,y1:r.y1},{x0:a,x1:b,y0:r.y0,y1:c},{x0:a,x1:b,y0:d,y1:r.y1}].filter(q=>q.x1-q.x0>1&&q.y1-q.y0>1)}
+function build(){
+const p=params(),{L,H,sep,W,esp,capas,sent}=p;parts=[];pieces=[];O=null;bad=0;
+const add=(step,name,x0,x1,y0,y1,z0,z1,col,x)=>parts.push({step,name,x0,x1,y0,y1,z0,z1,col,...x});
+if(vano!='sin'){const vw=Math.min(p.vw,L-4*F),x0=Math.max(2*F,Math.min(p.vx,L-vw-2*F)),y0=vano=='puerta'?0:Math.max(2*F,p.vs),y1=Math.min(H-3*F,y0+p.vh);O={x0,x1:x0+vw,y0,y1}}
+add(1,'Solera',0,L,0,F,-W/2,W/2,C.s);add(1,'Solera',0,L,H-F,H,-W/2,W/2,C.s);
+const cs=[F/2];for(let k=1;k*sep<L-1.5*F;k++)if(k*sep>1.5*F)cs.push(k*sep);cs.push(L-F/2);
+const z=W/2-1;
+cs.forEach(c=>{const x0=c-F/2,x1=c+F/2;
+if(O&&x1>O.x0-F&&x0<O.x1+F){if(x0>=O.x0&&x1<=O.x1){add(3,'Montante corto',x0,x1,O.y1+F,H-1,-z,z,C.c);if(O.y0>0)add(3,'Montante corto',x0,x1,1,O.y0-F,-z,z,C.c)}return}
+add(2,'Montante',x0,x1,1,H-1,-z,z,C.m)});
+if(O){add(3,'Jamba',O.x0-F,O.x0,1,H-1,-z,z,C.j);add(3,'Jamba',O.x1,O.x1+F,1,H-1,-z,z,C.j);
+add(3,'Dintel',O.x0,O.x1,O.y1,O.y1+F,-W/2,W/2,C.d);if(O.y0>0)add(3,'Antepecho',O.x0,O.x1,O.y0-F,O.y0,-W/2,W/2,C.d)}
+const w=sent=='v'?p.s:p.l,h=sent=='v'?p.l:p.s,js=new Set();
+for(let f=0;f<2;f++)for(let l=0;l<capas;l++){
+const off=l%2?w/2:0,zb=W/2+l*esp,[z0,z1]=f?[-zb-esp,-zb]:[zb,zb+esp];
+for(let x=-off;x<L;x+=w)for(let y=0;y<H;y+=h){
+const r={x0:Math.max(x,0),x1:Math.min(x+w,L),y0:y,y1:Math.min(y+h,H)};
+for(const q of O?sub(r,O):[r]){
+add(4+f,'Placa',q.x0,q.x1,q.y0,q.y1,z0,z1,f?C.b:C.a,{lay:l,face:f});
+const a=q.x1-q.x0,b=q.y1-q.y0;pieces.push(sent=='v'?{s:a,l:b}:{s:b,l:a});
+if(f==0&&l==0&&q.x0>1)js.add(Math.round(q.x0))}}}
+js.forEach(x=>{if(!cs.some(c=>Math.abs(c-x)<=F/2))bad++});
+}
+function place(b,p){let k=-1,m=1e12;b.f.forEach((r,i)=>{if(r.w>=p.s&&r.h>=p.l&&r.w*r.h<m){m=r.w*r.h;k=i}});
+if(k<0)return false;const r=b.f.splice(k,1)[0];
+if(r.w-p.s>0)b.f.push({x:r.x+p.s,y:r.y,w:r.w-p.s,h:r.h});
+if(r.h-p.l>0)b.f.push({x:r.x,y:r.y+p.l,w:p.s,h:r.h-p.l});b.n++;return true}
+function nest(ps,st){const bins=[],av=[],P=params();
+st.forEach(r=>{for(let i=0;i<r.n;i++)av.push({S:r.s,L:r.l})});
+ps.sort((a,b)=>b.s*b.l-a.s*a.l);
+for(const p of ps){let ok=bins.some(b=>place(b,p));
+while(!ok&&av.length){const a=av.shift(),b={S:a.S,L:a.L,n:0,f:[{x:0,y:0,w:a.S,h:a.L}]};bins.push(b);ok=place(b,p)}
+if(!ok){const b={S:P.s,L:P.l,x:1,n:0,f:[{x:0,y:0,w:P.s,h:P.l}]};bins.push(b);place(b,p)}}
+return bins.filter(b=>b.n)}
+function lines(){const p=params(),m={},pm={};
+parts.filter(q=>q.step<4).forEach(q=>{const h=q.x1-q.x0>q.y1-q.y0,len=Math.round(h?q.x1-q.x0:q.y1-q.y0),t=/Solera|Dintel|Antepecho/.test(q.name)?'PGU':'PGC',k=`${q.name} ${t} ${p.W} x 0.50 · ${len} mm`;m[k]=(m[k]||0)+1});
+parts.filter(q=>q.step>3).forEach(q=>{const k=`Placa ${p.esp} mm · ${Math.round(q.x1-q.x0)} × ${Math.round(q.y1-q.y0)} mm`;pm[k]=(pm[k]||0)+1});
+return Object.entries(m).map(([k,n])=>`${n} × ${k}`).concat(Object.entries(pm).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} × ${k}`))}
+function calc(){
+const p=params(),ub=nest(pieces.map(x=>({...x})),stock.map(x=>({...x}))),ext=ub.filter(b=>b.x).length,own=ub.length-ext;
+const tot=ub.reduce((a,b)=>a+b.S*b.L,0),ar=pieces.reduce((a,q)=>a+q.s*q.l,0),ap=tot?Math.round(100*ar/tot):0,ws=[];
+if(bad)ws.push(`${bad} junta(s) de la 1.ª capa no caen sobre un montante`);
+if(stock.length&&ext)ws.push(`faltan ${ext} placa(s) en el stock cargado`);
+let t=stock.length?`Stock: usa ${own} de ${stock.reduce((a,r)=>a+r.n,0)} placas`:`Se necesitan ${ub.length} placas de ${p.s} × ${p.l} mm`;
+t+=` · aprovechamiento ${ap}%`;
+const first=ws.length?`<span class="wr">⚠ ${ws.join(' · ')}</span>`:`<span class="ok">✓ Panel completo: ${pieces.length} piezas de placa</span>`;
+$('#st').innerHTML=first+'<br>'+t;stTxt=(ws.length?'⚠ '+ws.join(' · '):'✓ Panel completo: '+pieces.length+' piezas de placa')+' · '+t;
+$('#vn').textContent=O?`▭ Vano: ${Math.round(O.x1-O.x0)} × ${Math.round(O.y1-O.y0)} mm libre entre jambas`:'';
+$('#ls').textContent=lines().join('\n')}
+/* 3D */
+const R=new THREE.WebGLRenderer({antialias:true}),S=new THREE.Scene(),Cam=new THREE.PerspectiveCamera(40,1,.1,100),G=new THREE.Group(),grid=new THREE.GridHelper(12,24,0x555566,0x2a2a35),tg=new THREE.Vector3();
+$('#cv').appendChild(R.domElement);R.setClearColor(0);
+S.add(new THREE.AmbientLight(0xffffff,.65));const dl=new THREE.DirectionalLight(0xffffff,.7);dl.position.set(3,6,5);S.add(dl,grid,G);
+let th=.6,ph=1.25,rd=7;
+function cam(){Cam.position.set(tg.x+rd*Math.sin(ph)*Math.sin(th),tg.y+rd*Math.cos(ph),tg.z+rd*Math.sin(ph)*Math.cos(th));Cam.lookAt(tg)}
+function fit(){const p=params();tg.set(p.L*K/2,p.H*K/2,0);rd=Math.max(p.L,p.H)*K*1.9;th=.6;ph=1.25;grid.position.set(tg.x,0,0);cam()}
+function size(){const w=$('#cv').clientWidth,h=$('#cv').clientHeight;R.setSize(w,h);Cam.aspect=w/h;Cam.updateProjectionMatrix()}
+function mesh(){while(G.children.length)G.remove(G.children[0]);
+meshes=parts.map((q,i)=>{const g=new THREE.BoxGeometry((q.x1-q.x0)*K,(q.y1-q.y0)*K,(q.z1-q.z0)*K),m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:q.col}));
+m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g),new THREE.LineBasicMaterial({color:0,transparent:true,opacity:.35})));
+q.bx=(q.x0+q.x1)/2*K;q.by=(q.y0+q.y1)/2*K;q.bz=(q.z0+q.z1)/2*K;m.userData.i=i;G.add(m);return m})}
+function upd(){meshes.forEach((m,i)=>{const q=parts[i],g=hid.has(i);
+m.visible=q.step<=mont;m.material.transparent=g;m.material.opacity=g?.08:1;m.material.depthWrite=!g;m.children[0].visible=!g;
+let dz=0,dy=0;if(q.step==2)dz=.35*ex;if(q.step==3)dz=.7*ex;if(q.step==4)dz=(1.3+q.lay*.35)*ex;if(q.step==5)dz=-(1.3+q.lay*.35)*ex;if(q.step==1)dy=(q.y0?1:-1)*.3*ex;
+m.position.set(q.bx,q.by+dy,q.bz+dz)})}
+function all(){hid.clear();build();mesh();calc();upd();$('#ml').textContent=STEPS[mont];$('#bP').textContent='Quitar placas'}
+(function loop(){requestAnimationFrame(loop);if(Math.abs(ex-exT)>.002){ex+=(exT-ex)*.14;$('#ex').value=ex*100;upd()}R.render(S,Cam)})();
+/* interacción */
+const cv=R.domElement,pt=new Map();let mv=0;
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);pt.set(e.pointerId,{x:e.clientX,y:e.clientY});mv=0};
+cv.onpointermove=e=>{const a=pt.get(e.pointerId);if(!a)return;
+if(pt.size==1){const dx=e.clientX-a.x,dy=e.clientY-a.y;mv+=Math.abs(dx)+Math.abs(dy);th-=dx*.008;ph=Math.max(.2,Math.min(2.9,ph-dy*.008))}
+else{const o=[...pt.entries()].find(([k])=>k!=e.pointerId)[1],d0=Math.hypot(a.x-o.x,a.y-o.y),d1=Math.hypot(e.clientX-o.x,e.clientY-o.y);if(d1>0)rd=Math.max(1,Math.min(30,rd*d0/d1));mv+=9}
+a.x=e.clientX;a.y=e.clientY;cam()};
+cv.onpointerup=e=>{if(pt.size==1&&mv<6)pick(e);pt.delete(e.pointerId)};cv.onpointercancel=e=>pt.delete(e.pointerId);
+cv.onwheel=e=>{e.preventDefault();rd=Math.max(1,Math.min(30,rd*(1+e.deltaY*.001)));cam()};
+function pick(e){const r=cv.getBoundingClientRect(),rc=new THREE.Raycaster();
+rc.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1)),Cam);
+const h=rc.intersectObjects(meshes.filter(m=>m.visible)),t=h.find(x=>!hid.has(x.object.userData.i))||h[0];
+if(t){const i=t.object.userData.i;hid.has(i)?hid.delete(i):hid.add(i);upd()}}
+/* controles */
+$('#ex').oninput=e=>{ex=exT=e.target.value/100;upd()};
+$('#mo').oninput=e=>{mont=+e.target.value;$('#ml').textContent=STEPS[mont];upd()};
+$('#bD').onclick=()=>{exT=exT>.5?0:1;$('#bD').textContent=exT?'Armar':'Desarmar'};
+$('#bR').onclick=()=>{ex=exT=0;mont=5;$('#mo').value=5;$('#ex').value=0;$('#bD').textContent='Desarmar';hid.clear();$('#bP').textContent='Quitar placas';$('#ml').textContent=STEPS[5];fit();upd()};
+$('#bP').onclick=()=>{const ids=parts.map((q,i)=>q.step>3?i:-1).filter(i=>i>=0),h=ids.every(i=>hid.has(i));ids.forEach(i=>h?hid.delete(i):hid.add(i));$('#bP').textContent=h?'Quitar placas':'Poner placas';upd()};
+$('#vb').onclick=e=>{const v=e.target.dataset.v;if(!v)return;vano=v;[...$('#vb').children].forEach(b=>b.classList.toggle('on',b==e.target));
+if(v=='puerta'){$('#vw').value=900;$('#vh').value=2050}if(v=='ventana'){$('#vw').value=1200;$('#vh').value=1200;$('#vs').value=900}all()};
+$('#pr').oninput=()=>{all();fit()};
+/* stock */
+function drawStock(){$('#stock').innerHTML=stock.map((r,i)=>`<div class="sr"><input type="number" inputmode="numeric" value="${r.l}" data-i="${i}" data-k="l"><input type="number" inputmode="numeric" value="${r.s}" data-i="${i}" data-k="s"><input type="number" inputmode="numeric" value="${r.n}" data-i="${i}" data-k="n"><button data-x="${i}">×</button></div>`).join('')}
+$('#stock').oninput=e=>{const d=e.target.dataset;if(d.k){stock[d.i][d.k]=Math.max(0,+e.target.value||0);calc()}};
+$('#stock').onclick=e=>{const i=e.target.dataset.x;if(i!==undefined){stock.splice(+i,1);drawStock();calc()}};
+$('#bA').onclick=()=>{const p=params();stock.push({l:p.l,s:p.s,n:1});drawStock();calc()};
+$('#bV').onclick=()=>{stock=[];drawStock();calc()};
+$('#bF').onclick=()=>{const p=params(),n=nest(pieces.map(x=>({...x})),[]).length;stock=[{l:p.l,s:p.s,n}];drawStock();calc()};
+$('#bI').onclick=()=>{const out=[];$('#tx').value.split('\n').forEach(l=>{const n=parseInt(l),nums=(l.replace(/^\s*\d+\s*[x×]/i,'').match(/\d{3,4}/g)||[]).slice(-2).map(Number);
+if(n>0&&nums.length==2)out.push({n,l:Math.max(...nums),s:Math.min(...nums)})});
+if(!out.length)return;stock=$('#rp').checked?out:stock.concat(out);drawStock();calc()};
+/* exportar */
+function exportImg(){
+const p=params(),ls=lines(),sc=1160/p.L,top=110,hh=p.H*sc,Hh=Math.round(top+hh+70+ls.length*26+130),c=document.createElement('canvas');
+c.width=1240;c.height=Hh;const g=c.getContext('2d'),X=40,rx=a=>X+a*sc,ry=a=>top+(p.H-a)*sc;
+g.fillStyle='#15151a';g.fillRect(0,0,1240,Hh);
+g.fillStyle='#fff';g.font='bold 30px sans-serif';g.fillText('Panel drywall · '+({ventana:'Vano ventana',puerta:'Vano puerta',sin:'Sin vano'})[vano],X,48);
+g.fillStyle='#a9a5b1';g.font='18px sans-serif';g.fillText(`Vista frontal · ${p.L} × ${p.H} mm · perfiles ${p.W} x 0.50 · placa ${p.esp} mm × ${p.capas} capa(s) por cara`,X,80);
+parts.filter(q=>q.step<4).forEach(q=>{g.fillStyle='#'+q.col.toString(16).padStart(6,'0');g.fillRect(rx(q.x0),ry(q.y1),(q.x1-q.x0)*sc,(q.y1-q.y0)*sc)});
+g.strokeStyle='rgba(255,255,255,.45)';g.setLineDash([6,5]);
+parts.filter(q=>q.step==4&&q.lay==0).forEach(q=>g.strokeRect(rx(q.x0),ry(q.y1),(q.x1-q.x0)*sc,(q.y1-q.y0)*sc));
+g.setLineDash([]);g.strokeStyle='#666';g.strokeRect(X,top,p.L*sc,hh);
+if(O){g.fillStyle='#fff';g.font='20px sans-serif';g.textAlign='center';g.fillText(`Vano ${Math.round(O.x1-O.x0)} × ${Math.round(O.y1-O.y0)} mm`,rx((O.x0+O.x1)/2),ry((O.y0+O.y1)/2));g.textAlign='left'}
+let y=top+hh+44;g.fillStyle='#fff';g.font='bold 20px sans-serif';g.fillText('Listado de corte',X,y);
+g.font='17px sans-serif';g.fillStyle='#d8d4de';ls.forEach(l=>{y+=26;g.fillText(l,X,y)});
+y+=40;g.fillStyle=/⚠/.test(stTxt)?'#e8b04a':'#6fd08c';g.font='16px sans-serif';g.fillText(stTxt,X,y);
+y+=32;g.fillStyle='#8d8995';g.font='14px sans-serif';g.fillText('Aviso: este programa sirve solo para visualizar. No pretende ni debe usarse para reemplazar el plano ni el cálculo estructural correspondiente.',X,y);
+$('#oi').src=c.toDataURL('image/png');$('#ov').style.display='flex'}
+$('#bE').onclick=exportImg;$('#bC').onclick=()=>$('#ov').style.display='none';
+$('#bS').onclick=()=>{const a=document.createElement('a');a.href=$('#oi').src;a.download='panel-drywall.png';a.click()};
+addEventListener('resize',size);size();all();fit();drawStock();
+</script></body></html>
