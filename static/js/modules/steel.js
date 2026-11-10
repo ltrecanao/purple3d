@@ -291,7 +291,7 @@ function renderPNG() {
   const X = x => M + x * 1000 * s, Y = y => y0 + (P.H / 1000 - y) * 1000 * s;
   const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(X(x), Y(y + h), Math.max(w * 1000 * s, 2), Math.max(h * 1000 * s, 2)); };
   const T = (tx, x, y, f, c, al) => { ctx.font = f; ctx.fillStyle = c; ctx.textAlign = al || "left"; ctx.fillText(tx, x, y); };
-  T("Panel steelframe · " + (mode === "nb" ? "Vano no portante" : "Vano portante"), M, 42, "600 30px " + FONT, "#eeedf0");
+  T("Panel steelframing · " + (mode === "nb" ? "Vano no portante" : "Vano portante"), M, 42, "600 30px " + FONT, "#eeedf0");
   T("Vista frontal · " + P.L + " × " + P.H + " mm · perfiles 100 x 0.94", M, 72, "17px " + FONT, "#9b99a3");
   REQ.forEach(p => {
     if (p.miss) return;

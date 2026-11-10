@@ -25,7 +25,7 @@ this.meshes=parts.map((q,i)=>{const g=new T.BoxGeometry((q.x1-q.x0)*K,(q.y1-q.y0
 m.add(new T.LineSegments(new T.EdgesGeometry(g),new T.LineBasicMaterial({color:0,transparent:true,opacity:.35})));
 q.bx=(q.x0+q.x1)/2*K;q.by=(q.y0+q.y1)/2*K;q.bz=(q.z0+q.z1)/2*K;m.userData.i=i;this.G.add(m);return m});this.update()}
 update(){this.meshes.forEach((m,i)=>{const q=this.parts[i],g=this.hid.has(i),o=this.exf(q)||[0,0,0],e=this.ex;
-m.visible=(q.step||1)<=this.mont;m.material.transparent=g;m.material.opacity=g?.08:1;m.material.depthWrite=!g;m.children[0].visible=!g;
+const op=q.op==null?1:q.op;m.visible=(q.step||1)<=this.mont;m.material.transparent=g||op<1;m.material.opacity=g?.08:op;m.material.depthWrite=!g&&op>=1;m.children[0].visible=!g;
 m.position.set(q.bx+o[0]*e,q.by+o[1]*e,q.bz+o[2]*e)})}
 setStep(n){this.mont=n;this.update()}
 setExplosion(v,anim){this.exT=v;if(!anim){this.ex=v;this.update()}}

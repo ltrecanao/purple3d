@@ -1,13 +1,13 @@
-/* Módulo Purple3D · Woodframe
+/* Módulo Purple3D · Woodframing
    Panel de pared de entramado liviano de madera (platform frame): soleras, montantes, un vano opcional
-   (puerta o ventana) con kings, jacks, dintel y antepecho, bloqueos, tableros OSB, listado de corte y control
+   (puerta o ventana) con kings, jacks, dintel y antepecho, bloqueos, capas de panelizado (OSB, membrana, placa cementicia, lana de vidrio, barrera de vapor y yeso), listado de corte y control
    de faltantes y sobrantes de madera. Todo en milímetros. Contrato: references/contrato.md.
 
    AVISO: el resultado puede confundirse con un plano o un cálculo estructural. El aviso va en tres lugares
    coherentes: registry.json (campo "aviso"), el bloque #disc del html, y la imagen y el listado exportados. */
 Purple3D.register({
 id:'woodframe',
-name:'Woodframe',
+name:'Woodframing',
 hint:'Tocá una pieza para sacarla o ponerla de nuevo. Arrastrá para girar.',
 css:`
 :root{--bg:#faf8ff;--card:#fff;--tx:#1e1b2e;--mut:#5e5877;--bd:#e4def5;--ac:#6d28d9;--acx:#fff;--soft:#f0eafd;--bad:#b3261e;--wrn:#8a5a00;--ok:#1b6e3c;
@@ -43,6 +43,7 @@ pre{white-space:pre-wrap;margin:6px 0;font-size:.8rem;color:var(--tx);font-famil
 #fal{font-size:.82rem;margin:8px 0}#fal div{margin:3px 0}
 .bad{color:var(--bad)}.wrn{color:var(--wrn)}.ok{color:var(--ok)}.mt{color:var(--mut)}
 #km{font-size:.8rem;color:var(--mut);margin:4px 0;min-height:1em}
+#lay{display:block;font-size:.85rem;margin:6px 0}#lay[hidden]{display:none}#lay b{display:block;margin:6px 0 0;color:var(--tx)}#lay label{display:inline-flex;align-items:center;gap:8px;min-height:36px;margin-right:14px;color:var(--tx)}#lay input{width:20px;height:20px;accent-color:var(--ac)}
 #ov{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));overflow:auto}
 #ov[hidden]{display:none}
 #ov img{max-width:100%;height:auto;border-radius:8px}
@@ -69,8 +70,9 @@ html:`
 </div></details>
 <div id="chk"></div>
 <div class="row"><label for="ex">Explosión</label><input id="ex" type="range" min="0" max="100" value="0"></div>
-<div class="row"><label for="st">Montaje</label><input id="st" type="range" min="1" max="8" step="1" value="8"><output id="stl" for="st"></output></div>
+<div class="row"><label for="st">Montaje</label><input id="st" type="range" min="1" max="11" step="1" value="11"><output id="stl" for="st"></output></div>
 <div class="bt"><button id="bD" class="pri">Desarmar</button><button id="bR">Reiniciar</button><button id="bP">Panelizar</button><button id="bE">Exportar imagen</button></div>
+<div id="lay" hidden></div>
 <div id="disc" class="av"><b>Aviso:</b> Este módulo sirve solo para visualizar. No pretende ni debe usarse para reemplazar el plano ni el cálculo estructural correspondiente.</div>
 <details id="sk" open><summary>Madera disponible</summary>
 <div id="rows"></div>
@@ -85,9 +87,18 @@ html:`
 mount(ctx){
 const $=s=>ctx.panel.querySelector(s),V=ctx.viewer;
 const COL={sol:0x8a5a2b,mon:0xd8b27a,king:0xd9a441,jack:0xe0703a,dint:0x6bb38a,ant:0x4f9ea8,cort:0xe6cf9a,blq:0xa0724a,osb:0xc9a56b,falta:0xd9534f};
-const STEPS=['','1. Soleras','2. Montantes','3. Kings y jacks','4. Dintel y antepecho','5. Montantes cortos','6. Bloqueos','7. Doble solera','8. Tableros OSB'];
+const STEPS=['','1. Soleras','2. Montantes','3. Kings y jacks','4. Dintel y antepecho','5. Montantes cortos','6. Bloqueos','7. Doble solera','8. Tableros OSB','9. Membrana y placa cementicia','10. Lana de vidrio y barrera de vapor','11. Placa de yeso'];
 const AV='Este módulo sirve solo para visualizar. No pretende ni debe usarse para reemplazar el plano ni el cálculo estructural correspondiente.';
-const OSB={e:11,w:1220,h:2440,min:50};
+const MINR=50;
+/* capas de panelizado: exterior hacia +Z, interior hacia -Z. Las placas van en hojas comerciales; membrana, barrera y lana, en rollo continuo. */
+const LAY=[
+ {k:'osb',side:'ext',name:'Tablero OSB',e:11,w:1220,h:2440,col:COL.osb,op:1,step:8,dz:1.3},
+ {k:'mem',side:'ext',name:'Membrana hidrófuga',e:2,col:0xf4f4f4,op:.85,step:9,dz:1.6},
+ {k:'cem',side:'ext',name:'Placa cementicia',e:8,w:1200,h:2400,col:0x9aa1a6,op:1,step:9,dz:1.9},
+ {k:'lana',side:'int',name:'Lana de vidrio',e:0,col:0xf0d34a,op:.85,step:10,dz:-.6},
+ {k:'bar',side:'int',name:'Barrera de vapor',e:2,col:0x9ecbe8,op:.55,step:10,dz:-1},
+ {k:'yeso',side:'int',name:'Placa de yeso',e:12.5,w:1200,h:2400,col:0xe8e4da,op:1,step:11,dz:-1.4}];
+const SIDE={ext:'Exterior',int:'Interior'},layOn={};LAY.forEach(l=>{layOn[l.k]=true});
 let parts=[],cur=null,desarmado=false,pan=false,stock=[],lastLH='';
 const num=id=>+$('#'+id).value||0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -124,7 +135,7 @@ function params(){
 function build(p){
  const{L,H,sep,t,D,nTop,top,op,w,vh,vs,vx,hd}=p,Z0=-D/2,Z1=D/2,out=[];
  const xL=vx,xR=vx+w,vTop=vs+vh,secS=t+' × '+D,secH=t+' × '+hd;
- const add=o=>{o.col0=o.col;o.dims=o.sec?o.sec+' × '+o.len:OSB.e+' × '+Math.round(o.x1-o.x0)+' × '+Math.round(o.y1-o.y0);out.push(o);return o};
+ const add=o=>{o.col0=o.col;o.dims=o.sec?o.sec+' × '+o.len:fmt(o.e)+' × '+Math.round(o.x1-o.x0)+' × '+Math.round(o.y1-o.y0);out.push(o);return o};
  const mad=(step,name,sec,x0,x1,y0,y1,z0,z1,col,len)=>add({step,name,sec,len,x0,x1,y0,y1,z0,z1,col});
  /* soleras (en una puerta la solera inferior se corta en el vano) */
  if(op&&vs===0){mad(1,'Solera inferior',secS,0,xL,0,t,Z0,Z1,COL.sol,xL);mad(1,'Solera inferior',secS,xR,L,0,t,Z0,Z1,COL.sol,L-xR)}
@@ -159,27 +170,36 @@ function build(p){
    if(gap<=0||(op&&a===kl&&b===kr))continue;
    mad(6,'Bloqueo',secS,a[1],b[0],yb,yb+t,Z0,Z1,COL.blq,gap)}
  }
- /* panelizado: hojas de OSB en vertical por la cara exterior (+Z), recortadas por el vano */
- let hojas=0;
+ /* panelizado: capas exteriores (OSB, membrana, placa cementicia) e interiores (lana, barrera de vapor, yeso), todas recortadas por el vano */
+ const hojas={};
  if(p.pan){
   const R=op?[xL,xR,vs,vTop]:null;
-  for(let x=0;x<L;x+=OSB.w)for(let y=0;y<H;y+=OSB.h){
-   const T=[x,Math.min(x+OSB.w,L),y,Math.min(y+OSB.h,H)],rs=[];
-   if(R&&R[0]<=T[0]&&R[1]>=T[1]&&R[2]<=T[2]&&R[3]>=T[3])continue;
-   hojas++;
+  const lanaE=Math.max(20,D-10);
+  const zl=ly=>ly.k==='osb'?[Z1,Z1+11]:ly.k==='mem'?[Z1+11,Z1+13]:ly.k==='cem'?[Z1+13,Z1+21]:ly.k==='lana'?[-lanaE/2,lanaE/2]:ly.k==='bar'?[Z0-2,Z0]:[Z0-14.5,Z0-2];
+  const cortar=T=>{const rs=[];
    if(!R||R[0]>=T[1]||R[1]<=T[0]||R[2]>=T[3]||R[3]<=T[2])rs.push(T);
    else{const a=Math.max(T[0],R[0]),b=Math.min(T[1],R[1]);
     if(R[0]>T[0])rs.push([T[0],R[0],T[2],T[3]]);
     if(R[1]<T[1])rs.push([R[1],T[1],T[2],T[3]]);
     if(R[2]>T[2])rs.push([a,b,T[2],R[2]]);
     if(R[3]<T[3])rs.push([a,b,R[3],T[3]])}
-   rs.forEach(r=>{if(r[1]-r[0]>=OSB.min&&r[3]-r[2]>=OSB.min)add({step:8,name:'Tablero OSB '+OSB.e+' mm',sec:'',len:0,x0:r[0],x1:r[1],y0:r[2],y1:r[3],z0:Z1,z1:Z1+OSB.e,col:COL.osb})})}
+   return rs};
+  LAY.filter(ly=>layOn[ly.k]).forEach(ly=>{
+   const z=zl(ly),e=z[1]-z[0],tiles=[];let n=0,area=0;
+   if(ly.w){for(let x=0;x<L;x+=ly.w)for(let y=0;y<H;y+=ly.h)tiles.push([x,Math.min(x+ly.w,L),y,Math.min(y+ly.h,H)])}
+   else tiles.push([0,L,0,H]);
+   tiles.forEach(T=>{
+    if(R&&R[0]<=T[0]&&R[1]>=T[1]&&R[2]<=T[2]&&R[3]>=T[3])return;
+    n++;
+    cortar(T).forEach(r=>{if(r[1]-r[0]>=MINR&&r[3]-r[2]>=MINR){area+=(r[1]-r[0])*(r[3]-r[2])/1e6;
+     add({step:ly.step,name:ly.name+' '+fmt(e)+' mm',sec:'',len:0,e:e,x0:r[0],x1:r[1],y0:r[2],y1:r[3],z0:z[0],z1:z[1],col:ly.col,op:ly.op,dz:ly.dz,layer:ly.k})}})});
+   hojas[ly.k]={n,area}})
  }
  /* explosión: cada paso se separa en una dirección (metros por unidad de explosión) */
- const DZ={2:.2,3:.4,4:.6,5:.8,6:1,8:1.3};
+ const DZ={2:.2,3:.4,4:.6,5:.8,6:1};
  out.forEach(q=>{const cx=(q.x0+q.x1)/2;let dy=0;
   if(q.step===1)dy=q.y0<H/2?-.3:.3;else if(q.step===7)dy=.5;
-  q.xp=[(cx-L/2)*.00025,dy,DZ[q.step]||0]});
+  q.xp=[(cx-L/2)*.00025,dy,q.dz!==undefined?q.dz:(DZ[q.step]||0)]});
  return{out,hojas}}
 const EX=q=>q.xp||[0,0,0];
 
@@ -189,9 +209,10 @@ function groups(){const m={};parts.forEach(q=>{const k=q.name+'|'+q.dims;if(!m[k
 const lines=()=>groups().map(g=>g.n+' × '+g.name+' · '+g.dims+' mm');
 function volumen(){return parts.filter(q=>q.sec).reduce((s,q)=>s+(q.x1-q.x0)*(q.y1-q.y0)*(q.z1-q.z0),0)/1e9}
 function resumen(){const r=lines();
- if(cur.hojas)r.push('','Hojas de OSB de '+OSB.w+' × '+OSB.h+' mm: '+cur.hojas+' (sin aprovechar recortes entre hojas).');
+ const cp=LAY.filter(ly=>cur.hojas[ly.k]);
+ if(cp.length){r.push('');cp.forEach(ly=>{const h=cur.hojas[ly.k];r.push(ly.w?ly.name+': '+h.n+' hojas de '+ly.w+' × '+ly.h+' mm (sin aprovechar recortes entre hojas).':ly.name+': '+fmt(h.area.toFixed(2))+' m² en rollo, con el vano recortado.')})}
  r.push('','Madera: '+fmt(volumen().toFixed(3))+' m³ (sin desperdicio).');return r}
-function texto(){const p=cur.p;return ['Woodframe · panel de '+p.L+' × '+p.H+' mm · montantes cada '+p.sep+' mm · pieza '+p.t+' × '+p.D+' mm',''].concat(resumen(),['','Aviso: '+AV]).join('\n')}
+function texto(){const p=cur.p;return ['Woodframing · panel de '+p.L+' × '+p.H+' mm · montantes cada '+p.sep+' mm · pieza '+p.t+' × '+p.D+' mm',''].concat(resumen(),['','Aviso: '+AV]).join('\n')}
 function csv(){return '\ufeff'+['Cantidad;Pieza;Medidas (mm)'].concat(groups().map(g=>g.n+';'+g.name+';'+g.dims)).join('\r\n')+'\r\n"Aviso: '+AV+'"\r\n'}
 
 /* 4. Madera disponible: faltantes, sobrantes y plan de corte (mejor ajuste, sin optimizar la compra) */
@@ -251,7 +272,7 @@ function render(){
   'Vano: king y jack a cada lado, dintel doble apoyado en los jacks y, en ventanas, antepecho plano con montantes cortos debajo. Sobre el dintel hay montantes cortos al eje de la grilla; si quedan menos altos que el espesor de la pieza, se omiten. En una puerta (antepecho 0) la solera inferior se corta en el vano.',
   'El alto del dintel es un dato ingresado: no se calcula según la luz ni las cargas.',
   'Bloqueos opcionales a media altura entre montantes de altura completa, sin escalonar.',
-  'Panelizar: tablero OSB de '+OSB.e+' mm en hojas de '+OSB.w+' × '+OSB.h+' mm, en vertical, por la cara exterior (+Z) y recortado por el vano; los recortes de menos de '+OSB.min+' mm de ancho o alto se omiten (se resuelven al colocar la hoja). Sin juntas desfasadas, clavado, membrana ni aislación.',
+  'Panelizar: exterior con tablero OSB de 11 mm (hojas de 1220 × 2440 mm, en vertical), membrana hidrófuga y placa cementicia de 8 mm (hojas de 1200 × 2400 mm); interior con lana de vidrio (espesor del panel menos 10 mm), barrera de vapor y placa de yeso de 12,5 mm (hojas de 1200 × 2400 mm). Todo recortado por el vano; los recortes de menos de '+MINR+' mm de ancho o alto se omiten (se resuelven al colocar la hoja). Membrana, barrera y lana se tratan como rollo continuo. Sin juntas desfasadas, clavado, tornillería ni cintas de junta.',
   'Faltantes y sobrantes: se asigna cada pieza a la madera disponible de su misma sección, de la más justa a la más holgada, descontando el corte de sierra. No optimiza la compra.',
   'No incluye clavos, herrajes, tolerancias de armado ni contracción de la madera.']});
  V.setParts(parts,EX);
@@ -265,8 +286,12 @@ $('#ex').oninput=()=>V.setExplosion(num('ex')/100);
 $('#st').oninput=()=>{stepTxt();V.setStep(num('st'))};
 V.onex=v=>{$('#ex').value=Math.round(v*100)};
 $('#bD').onclick=()=>{desarmado=!desarmado;V.setExplosion(desarmado?1:0,true);$('#bD').textContent=desarmado?'Armar':'Desarmar'};
-$('#bR').onclick=()=>{desarmado=false;$('#bD').textContent='Desarmar';$('#st').value=8;stepTxt();V.reset()};
-$('#bP').onclick=()=>{pan=!pan;$('#bP').textContent=pan?'Quitar paneles':'Panelizar';$('#bP').classList.toggle('pri',pan);render()};
+$('#bR').onclick=()=>{desarmado=false;$('#bD').textContent='Desarmar';$('#st').value=11;stepTxt();V.reset()};
+const lay=$('#lay');
+['ext','int'].forEach(sd=>{const t=document.createElement('b');t.textContent=SIDE[sd];lay.appendChild(t);
+ LAY.filter(l=>l.side===sd).forEach(l=>{const lb=document.createElement('label'),i=document.createElement('input');i.type='checkbox';i.checked=true;i.dataset.k=l.k;lb.append(i,l.name);lay.appendChild(lb)})});
+lay.addEventListener('change',e=>{const k=e.target.dataset.k;if(k===undefined)return;layOn[k]=e.target.checked;render()});
+$('#bP').onclick=()=>{pan=!pan;lay.hidden=!pan;$('#bP').textContent=pan?'Quitar paneles':'Panelizar';$('#bP').classList.toggle('pri',pan);render()};
 ctx.panel.querySelectorAll('#mp input,#mv input').forEach(i=>i.addEventListener('input',render));
 
 /* 6. Exportaciones: la imagen y el listado llevan el aviso */
@@ -279,15 +304,15 @@ function conAviso(url,cb){
   c.width=W;c.height=im.height+pad*2+fh*(rows.length+1);
   g.fillStyle='#000';g.fillRect(0,0,c.width,c.height);g.drawImage(im,Math.round((W-im.width)/2),0);
   g.font=fuente;g.fillStyle='#e8e8ee';g.textBaseline='alphabetic';
-  g.fillText('Woodframe · '+p.L+' × '+p.H+' mm · montantes cada '+p.sep+' mm',pad,im.height+pad+fs);
+  g.fillText('Woodframing · '+p.L+' × '+p.H+' mm · montantes cada '+p.sep+' mm',pad,im.height+pad+fs);
   rows.forEach((r,i)=>g.fillText(r,pad,im.height+pad+fs+fh*(i+1)));
   cb(c.toDataURL('image/png'))}catch(e){cb(url)}};
  im.onerror=()=>cb(url);im.src=url}
 $('#bE').onclick=()=>{conAviso(V.snapshot(),u=>{$('#oi').src=u;$('#ov').hidden=false;$('#bS').focus()})};
 $('#bC').onclick=()=>{$('#ov').hidden=true};
 function bajar(href,nombre){const a=document.createElement('a');a.href=href;a.download=nombre;document.body.appendChild(a);a.click();a.remove()}
-$('#bS').onclick=()=>bajar($('#oi').src,'woodframe.png');
-$('#bX').onclick=()=>{try{const u=URL.createObjectURL(new Blob([csv()],{type:'text/csv;charset=utf-8'}));bajar(u,'woodframe-listado.csv');setTimeout(()=>URL.revokeObjectURL(u),1000);msg('Listado descargado.')}catch(e){msg('No se pudo descargar: usá Copiar listado.')}};
+$('#bS').onclick=()=>bajar($('#oi').src,'woodframing.png');
+$('#bX').onclick=()=>{try{const u=URL.createObjectURL(new Blob([csv()],{type:'text/csv;charset=utf-8'}));bajar(u,'woodframing-listado.csv');setTimeout(()=>URL.revokeObjectURL(u),1000);msg('Listado descargado.')}catch(e){msg('No se pudo descargar: usá Copiar listado.')}};
 $('#bK').onclick=()=>{const t=texto(),ok=()=>msg('Listado copiado.'),ko=()=>{
   const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();
   let r=false;try{r=document.execCommand('copy')}catch(e){}a.remove();msg(r?'Listado copiado.':'No se pudo copiar: usá Descargar CSV.')};
