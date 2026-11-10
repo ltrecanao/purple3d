@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Purple3D</title>
+<link rel="icon" type="image/svg+xml" href="static/assets/purple.svg">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;position:relative;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#hint{position:absolute;z-index:2;top:8px;left:12px;right:12px;margin:0;font-size:.85rem;color:#e8e8ee;text-shadow:0 1px 2px #000;pointer-events:none}
+#cv{flex:none;height:44dvh;min-height:240px;background:#000;touch-action:none}
+#cv canvas{display:block;width:100%;height:100%}
+#pn{flex:1;min-height:0;overflow:auto;padding:12px 16px 32px}
+@media (min-width:820px){body{flex-direction:row}#cv{flex:1;height:100%;min-height:0}#pn{flex:none;width:420px;max-width:42vw;border-left:1px solid #8885}}
+</style></head><body>
+<p id="hint"></p><div id="cv"></div><main id="pn"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="static/js/purple3d.js"></script>
+<script>
+const $=s=>document.querySelector(s),id=new URLSearchParams(location.search).get('m')||'',s=document.createElement('script');
+s.src='static/js/modules/'+encodeURIComponent(id)+'.js';
+s.onload=()=>{const m=Purple3D.modules[id];if(!m)return;document.title=m.name+' · Purple3D';$('#hint').textContent=m.hint||'';
+if(m.css){const st=document.createElement('style');st.textContent=m.css;document.head.appendChild(st)}
+$('#pn').innerHTML=m.html||'';m.mount({viewer:new Purple3D.Viewer($('#cv')),panel:$('#pn')})};
+s.onerror=()=>{$('#pn').textContent='No se encontró el módulo «'+id+'».'};
+document.head.appendChild(s);
+</script></body></html>
