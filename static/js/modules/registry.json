@@ -12,5 +12,12 @@
   "description": "Placas de yeso cortadas por el vano, stock de placas y aprovechamiento.",
   "icon": "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
   "aviso": "Solo para visualizar. No reemplaza el plano ni el cálculo estructural."
+ },
+ {
+  "id": "woodframe",
+  "name": "Woodframe",
+  "description": "Soleras, montantes, vano con dintel, panelizado en OSB y control de faltantes y sobrantes de madera.",
+  "icon": "M3 11l9-7 9 7M5 10v10h14V10M9 20v-6M15 20v-6",
+  "aviso": "Solo para visualizar. No reemplaza el plano ni el cálculo estructural."
  }
 ]
