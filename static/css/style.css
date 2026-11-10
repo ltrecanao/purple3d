@@ -27,18 +27,14 @@ h2 em{color:var(--ac);font-family:'Instrument Serif',Georgia,serif;font-weight:4
 .card{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:20px}
 .card:hover{border-color:var(--ac)}
 .card small{color:var(--ac);font-weight:700;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase}.card b{font-size:1.3rem}.card span{color:var(--mut);font-size:.95rem}
+.avm{display:block;font-style:normal;font-size:.85rem;color:var(--mut);border-left:3px solid var(--wr);padding:2px 0 2px 10px;margin-top:6px}.avm strong{color:var(--tx);font-weight:700}
 .card i{margin-top:10px;font-style:normal;font-weight:700;color:var(--ac)}
-.av{background:var(--sf);border:1px solid var(--bd);border-left:4px solid var(--wr);border-radius:12px;padding:12px 14px;color:var(--mut);font-size:.92rem}
-.av b{color:var(--tx)}
+.mas{color:var(--mut);font-size:.92rem;max-width:560px;margin:0}.mas a{color:var(--ac)}
 nav{grid-area:nav;display:flex;background:var(--sf);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
 .it{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;padding:6px 4px;font-size:.75rem;color:var(--mut);text-decoration:none}
 .it[aria-current=page]{color:var(--ac);font-weight:700}
 .it svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .brand,.side{display:none}
-dialog{max-width:440px;width:calc(100% - 32px);background:var(--sf);color:var(--tx);border:1px solid var(--bd);border-radius:18px;padding:22px}
-dialog::backdrop{background:rgba(0,0,0,.6)}
-dialog h3{margin:0 0 8px}dialog p{color:var(--mut);margin:0 0 16px}
-.pb{font:inherit;font-weight:700;background:var(--ac);color:var(--acx);border:0;border-radius:12px;min-height:44px;padding:0 22px;cursor:pointer}
 @media (min-width:820px){
 body{grid-template-columns:236px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"nav top" "nav main"}
 #top{padding-top:0;min-height:56px}#top .lg{display:none}

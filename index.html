@@ -8,20 +8,19 @@
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="static/assets/purple.svg"><link rel="apple-touch-icon" href="static/assets/icon-192.png">
 <link rel="stylesheet" href="static/css/style.css"></head><body>
 <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="corazon" gradientUnits="userSpaceOnUse" x1="24" y1="28" x2="232" y2="220"><stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs></svg>
-<header id="top"><svg class="lg" viewBox="0 0 256 256" aria-hidden="true" focusable="false"><path fill="url(#corazon)" d="M128 220 C 62 166, 24 124, 24 84 C 24 50, 50 26, 84 26 C 104 26, 119 37, 128 53 C 137 37, 152 26, 172 26 C 206 26, 232 50, 232 84 C 232 124, 194 166, 128 220 Z"/></svg><h1 id="tt">Purple3D</h1><button class="ib inst" hidden>Instalar</button><button class="ib" id="ba" aria-label="Ver aviso">Aviso</button></header>
+<header id="top"><svg class="lg" viewBox="0 0 256 256" aria-hidden="true" focusable="false"><path fill="url(#corazon)" d="M128 220 C 62 166, 24 124, 24 84 C 24 50, 50 26, 84 26 C 104 26, 119 37, 128 53 C 137 37, 152 26, 172 26 C 206 26, 232 50, 232 84 C 232 124, 194 166, 128 220 Z"/></svg><h1 id="tt">Purple3D</h1><button class="ib inst" hidden>Instalar</button></header>
 <div id="main">
 <section id="home" class="view on" aria-label="Inicio"><div class="hw">
 <p class="ey">Purple3D</p><h2>Visualizador 3D, <em>a tu manera</em>.</h2>
-<p class="lead">Un motor 3D con módulos para cada tipo de objeto. Elegí un módulo para empezar.</p>
+<p class="lead">Un visualizador 3D con módulos para cada tipo de objeto. Elegí un módulo para empezar.</p>
 <div class="cards" id="cards"></div>
-<div class="av"><b>Aviso:</b> estos programas sirven solo para visualizar. No pretenden ni deben usarse para reemplazar el plano ni el cálculo estructural correspondiente.</div>
+<p class="mas">¿Necesitás un módulo para otro tipo de objeto? Los módulos nuevos se desarrollan a medida, como servicio a contratar: <a href="mailto:purple.empresas@proton.me?subject=M%C3%B3dulo%20a%20medida%20-%20Purple3D">purple.empresas@proton.me</a>.</p>
 </div></section>
 </div>
 <nav aria-label="Principal"><a class="brand" href="#home"><svg class="lg" viewBox="0 0 256 256" aria-hidden="true" focusable="false"><path fill="url(#corazon)" d="M128 220 C 62 166, 24 124, 24 84 C 24 50, 50 26, 84 26 C 104 26, 119 37, 128 53 C 137 37, 152 26, 172 26 C 206 26, 232 50, 232 84 C 232 124, 194 166, 128 220 Z"/></svg>Purple3D</a>
 <a class="it" data-r="home" href="#home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</a>
 <span id="mods" style="display:contents"></span>
 <div class="side"><button class="ib inst" hidden>Instalar app</button><span id="keys"></span><a href="https://purple.com.ar" target="_blank" rel="noopener">purple.com.ar</a></div></nav>
-<dialog id="dg"><h3>Aviso</h3><p>Estos programas sirven solo para visualizar. No pretenden ni deben usarse para reemplazar el plano ni el cálculo estructural correspondiente.</p><form method="dialog"><button class="pb">Entendido</button></form></dialog>
 <script>
 const $=s=>document.querySelector(s),T={home:'Purple3D'};let KEYS=['home'];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -33,13 +32,10 @@ addEventListener('hashchange',go);go();
 fetch('static/js/modules/registry.json').then(r=>r.json()).then(ms=>{
 ms.forEach(m=>{T[m.id]=m.name;const id=esc(m.id),nm=esc(m.name);
 $('#mods').insertAdjacentHTML('beforeend',`<a class="it" data-r="${id}" href="#${id}"><svg viewBox="0 0 24 24"><path d="${esc(m.icon||'M4 4h16v16H4z')}"/></svg>${nm}</a>`);
-$('#cards').insertAdjacentHTML('beforeend',`<a class="card" href="#${id}"><small>Módulo</small><b>${nm}</b><span>${esc(m.description||'')}</span><i>Abrir →</i></a>`);
+$('#cards').insertAdjacentHTML('beforeend',`<a class="card" href="#${id}"><small>Módulo</small><b>${nm}</b><span>${esc(m.description||'')}</span>${m.aviso?`<em class="avm"><strong>Aviso:</strong> ${esc(m.aviso)}</em>`:''}<i>Abrir →</i></a>`);
 const f=document.createElement('iframe');f.id=m.id;f.className='view';f.title=m.name;f.dataset.src='app.html?m='+encodeURIComponent(m.id);$('#main').appendChild(f)});
 KEYS=['home',...ms.map(m=>m.id)];$('#keys').textContent='Atajos: '+KEYS.map((k,i)=>i+1).join(' · ');go()
 }).catch(()=>{$('#cards').textContent='No se pudo cargar la lista de módulos.'});
-const dg=$('#dg');$('#ba').onclick=()=>dg.showModal();
-dg.addEventListener('close',()=>{try{localStorage.setItem('avisoOk','1')}catch(e){}});
-try{if(!localStorage.getItem('avisoOk'))dg.showModal()}catch(e){}
 addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea,dialog')||e.ctrlKey||e.metaKey||e.altKey)return;const m=KEYS[+e.key-1];if(m)location.hash=m});
 let ip;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ip=e;document.querySelectorAll('.inst').forEach(b=>b.hidden=false)});
 document.querySelectorAll('.inst').forEach(b=>b.onclick=async()=>{if(!ip)return;ip.prompt();await ip.userChoice;ip=null;document.querySelectorAll('.inst').forEach(x=>x.hidden=true)});
